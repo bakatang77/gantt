@@ -105,6 +105,14 @@ const BUCKET_MAP = {
   "5E3RGp5RW0uKyLXWru6UdPoAD1o-": "自社系",
   "FIEIHWKyrUGwRRYiA6TzV_oAC2lM": "その他作業"
 };
+const USER_MAP = {
+  "ead20dc0-e0f5-447c-8922-5a6b8fca6125": "小林",
+  "c00d1890-f8d2-40c1-886f-68d599e0a187": "堀江 勇人",
+  "19892f87-1fe6-414b-bd03-3939b04f7629": "斎藤 孝之",
+  "c1855e23-97c8-4728-9e03-196b15c11dc4": "Yugo",
+  "bef1257e-c642-45ca-8b78-78aa56a8f4ae": "伊丹由和",
+  "0e4b87ac-f8f0-46fb-8983-dbfe301a848d": "薛 雨欣"
+};
 const BUCKET_COLORS = {"PLUS S":"#378ADD","PLUS F":"#1D9E75","KING":"#D85A30","TT":"#7F77DD","PLUS V":"#D4537E","ATOM":"#BA7517","自社系":"#639922","その他作業":"#5F5E5A"};
 const STATUS_ORDER  = {"処理中":0,"開始前":1,"完了済み":2};
 const STATUS_BAR    = {"完了済み":"#378ADD","処理中":"#1D9E75","開始前":"#EF9F27"};
@@ -149,7 +157,7 @@ function convertPlannerData(raw) {
 
     // 担当者
     const assignments = task.assignments || {};
-    const assignees = Object.keys(assignments).join(';');
+    const assignees = Object.keys(assignments).map(id => USER_MAP[id] || id).join(';');
 
     return {
       name: task.title || '',
