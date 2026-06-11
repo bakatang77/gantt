@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<!-- saved from url=(0074)file:///C:/Users/%E6%96%8E%E8%97%A4%E5%AD%9D%E4%B9%8B/Downloads/gantt.html -->
+<html lang="ja"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ガントチャート - 進捗確認</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+#header { background: #fff; border-bottom: 1px solid #e0e0e0; padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+#header h1 { font-size: 16px; font-weight: 600; color: #333; margin-right: 8px; }
+#header select { font-size: 13px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 6px; background: #fff; }
+#header label { font-size: 12px; color: #666; }
+#filters { background: #fff; border-bottom: 1px solid #e0e0e0; padding: 8px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.filter-group { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.filter-label { font-size: 11px; font-weight: 600; color: #666; min-width: 60px; }
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 3px 10px; border: 1px solid #ddd; border-radius: 20px; background: #fff; cursor: pointer; user-select: none; transition: opacity 0.15s; }
+.pill.off { opacity: 0.3; }
+.pill .dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.pill .dot.round { border-radius: 50%; }
+#main { padding: 16px 20px; }
+#status-bar { font-size: 12px; color: #888; margin-bottom: 10px; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; font-size: 12px; color: #666; }
+.legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+.gantt-wrap { overflow: auto; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; max-height: calc(100vh - 240px); }
+table { border-collapse: collapse; width: 100%; min-width: 900px; }
+thead { position: sticky; top: 0; z-index: 3; }
+thead th { font-size: 11px; font-weight: 600; color: #666; background: #f9f9f9; padding: 7px 8px; border-bottom: 1px solid #e0e0e0; white-space: nowrap; }
+thead th.sortable { cursor: pointer; }
+thead th.sortable:hover { color: #333; background: #f0f0f0; }
+thead th .si { margin-left: 3px; font-size: 9px; opacity: 0.4; }
+thead th.sort-asc .si::after { content: '▲'; opacity: 1; }
+thead th.sort-desc .si::after { content: '▼'; opacity: 1; }
+thead th:not(.sort-asc):not(.sort-desc) .si::after { content: '⇅'; }
+tbody tr { border-bottom: 1px solid #f0f0f0; }
+tbody tr:hover { background: #fafafa; }
+.task-name-cell { font-size: 12px; padding: 5px 8px; min-width: 160px; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bucket-cell { font-size: 11px; padding: 5px 6px; white-space: nowrap; color: #555; }
+.status-cell { padding: 4px 6px; }
+.status-badge { font-size: 10px; padding: 2px 7px; border-radius: 10px; white-space: nowrap; display: inline-block; }
+.member-cell { font-size: 11px; padding: 4px 6px; min-width: 90px; max-width: 130px; }
+.avatars { display: flex; flex-wrap: wrap; gap: 3px; }
+.avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; flex-shrink: 0; cursor: default; }
+.bar-cell { padding: 4px 2px; position: relative; border-left: 1px solid #e0e0e0; }
+.bar-inner { position: relative; height: 22px; }
+.bar { height: 18px; border-radius: 4px; position: absolute; top: 2px; display: flex; align-items: center; padding: 0 5px; min-width: 3px; overflow: hidden; cursor: pointer; }
+.bar:hover { opacity: 0.8; }
+.bar span { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #e24b4a; z-index: 1; pointer-events: none; }
+.today-label { position: absolute; top: 1px; font-size: 9px; color: #e24b4a; white-space: nowrap; transform: translateX(-50%); }
+.no-results { padding: 40px; text-align: center; font-size: 13px; color: #999; }
+.group-label td { background: #f5f5f5; font-size: 11px; font-weight: 600; color: #666; padding: 4px 8px; border-bottom: 1px solid #e0e0e0; }
+#loading { padding: 40px; text-align: center; font-size: 14px; color: #888; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>📊 ガントチャート</h1>
+  <label>期間：</label>
+  <select id="periodFilter">
+    <option value="all">全期間</option>
+    <option value="2025">2025年</option>
+    <option value="2026h1">2026年上半期</option>
+    <option value="2026h2">2026年下半期</option>
+  </select>
+  <label style="margin-left:8px;">グループ：</label>
+  <select id="groupBy">
+    <option value="none">なし</option>
+    <option value="bucket">バケット別</option>
+    <option value="status">状態別</option>
+  </select>
+  <span id="last-updated" style="margin-left:auto;font-size:11px;color:#999;"></span>
+</div>
+
+<div id="filters">
+  <div class="filter-group"><span class="filter-label">バケット：</span><div id="bucketPills"></div></div>
+  <div class="filter-group"><span class="filter-label">状態：</span><div id="statusPills"></div></div>
+  <div class="filter-group"><span class="filter-label">メンバー：</span><div id="memberPills"></div></div>
+</div>
+
+<div id="main">
+  <div class="legend">
+    <span class="legend-item"><span class="legend-dot" style="background:#378ADD"></span>完了済み</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>処理中</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#EF9F27"></span>開始前</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#e24b4a;width:4px;border-radius:0;"></span>今日</span>
+  </div>
+  <div id="status-bar"></div>
+  <div class="gantt-wrap" id="ganttWrap"><div id="loading">データの読み込みに失敗しました。URLを確認してください。</div></div>
+</div>
+
+<script>
+// ======================================================
+// ★ここを自分のSharePointのtasks.jsonのURLに変更してください
+const TASKS_JSON_URL = '/Shared%20Documents/gantt/tasks.json';
+// ======================================================
+
+const BUCKET_COLORS = {"PLUS S":"#378ADD","PLUS F":"#1D9E75","KING":"#D85A30","TT":"#7F77DD","PLUS V":"#D4537E","ATOM":"#BA7517","自社系":"#639922","その他作業":"#5F5E5A"};
+const STATUS_ORDER  = {"処理中":0,"開始前":1,"完了済み":2};
+const STATUS_BAR    = {"完了済み":"#378ADD","処理中":"#1D9E75","開始前":"#EF9F27"};
+const STATUS_TEXT   = {"完了済み":"#042C53","処理中":"#04342C","開始前":"#412402"};
+const STATUS_BG     = {"完了済み":"#E6F1FB","処理中":"#E1F5EE","開始前":"#FAEEDA"};
+const STATUS_FG     = {"完了済み":"#185FA5","処理中":"#0F6E56","開始前":"#854F0B"};
+const MEMBER_COLORS = ["#7F77DD","#1D9E75","#D85A30","#D4537E","#BA7517","#378ADD","#639922","#5F5E5A"];
+const TODAY = new Date();
+
+let RAW = [];
+let sortCol = 'end', sortDir = 1;
+const memberColorMap = {};
+let colorIdx = 0;
+
+const visibleBuckets = new Set();
+const visibleStatuses = new Set();
+const visibleMembers  = new Set();
+
+function memberColor(name) {
+  if (!memberColorMap[name]) memberColorMap[name] = MEMBER_COLORS[colorIdx++ % MEMBER_COLORS.length];
+  return memberColorMap[name];
+}
+function initials(name) {
+  if (!name) return '?';
+  const p = name.trim().split(/\s+/);
+  return p.length >= 2 ? p[0][0] + p[1][0] : name.slice(0,2);
+}
+
+async function loadData() {
+  try {
+    const res = await fetch(TASKS_JSON_URL + '?_=' + Date.now());
+    RAW = await res.json();
+    document.getElementById('last-updated').textContent = '最終更新：' + new Date().toLocaleString('ja-JP');
+  } catch(e) {
+    RAW = [];
+    document.getElementById('loading').textContent = 'データの読み込みに失敗しました。URLを確認してください。';
+    return;
+  }
+  initFilters();
+  render();
+}
+
+function initFilters() {
+  const allBuckets = [...new Set(RAW.map(t=>t.bucket))].sort();
+  const allStatuses = ["処理中","開始前","完了済み"];
+  const allMembersSet = new Set();
+  RAW.forEach(t => { if(t.assignee) t.assignee.split(';').forEach(m=>{ const s=m.trim(); if(s) allMembersSet.add(s); }); });
+  const allMembers = [...allMembersSet].sort((a,b)=>a.localeCompare(b,'ja'));
+  allMembers.forEach(m => memberColor(m));
+
+  allBuckets.forEach(b => visibleBuckets.add(b));
+  allStatuses.forEach(s => visibleStatuses.add(s));
+  allMembers.forEach(m => visibleMembers.add(m));
+  visibleMembers.add('__none__');
+
+  buildPills('bucketPills', allBuckets, b => BUCKET_COLORS[b]||'#888', false, visibleBuckets);
+  buildPills('statusPills', allStatuses, s => STATUS_BAR[s]||'#888', false, visibleStatuses);
+  buildPills('memberPills', allMembers, m => memberColor(m), true, visibleMembers);
+}
+
+function buildPills(containerId, items, colorFn, round, visibleSet) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  items.forEach(item => {
+    const col = colorFn(item);
+    const pill = document.createElement('span');
+    pill.className = 'pill';
+    pill.innerHTML = `<span class="dot${round?' round':''}" style="background:${col}"></span>${item}`;
+    pill.addEventListener('click', () => {
+      const on = visibleSet.has(item);
+      on ? visibleSet.delete(item) : visibleSet.add(item);
+      pill.classList.toggle('off', on);
+      render();
+    });
+    container.appendChild(pill);
+  });
+}
+
+function taskDate(t){ const d=t.end||t.start; return d?new Date(d):new Date('9999-01-01'); }
+
+function filterTasks() {
+  const per = document.getElementById('periodFilter').value;
+  return RAW.filter(t => {
+    if(!visibleBuckets.has(t.bucket)) return false;
+    if(!visibleStatuses.has(t.status)) return false;
+    const members = t.assignee ? t.assignee.split(';').map(m=>m.trim()).filter(Boolean) : [];
+    if(members.length === 0) { if(!visibleMembers.has('__none__')) return false; }
+    else { if(!members.some(m=>visibleMembers.has(m))) return false; }
+    if(per !== 'all') {
+      const d = t.end||t.start; if(!d) return false;
+      const dt = new Date(d);
+      if(per==='2025' && dt.getFullYear()!==2025) return false;
+      if(per==='2026h1' && !(dt.getFullYear()===2026&&dt.getMonth()<6)) return false;
+      if(per==='2026h2' && !(dt.getFullYear()===2026&&dt.getMonth()>=6)) return false;
+    }
+    return true;
+  });
+}
+
+function sortTasks(tasks) {
+  return [...tasks].sort((a,b)=>{
+    if(sortCol==='bucket') return a.bucket.localeCompare(b.bucket,'ja')*sortDir;
+    if(sortCol==='status') return ((STATUS_ORDER[a.status]??9)-(STATUS_ORDER[b.status]??9))*sortDir;
+    if(sortCol==='name') return a.name.localeCompare(b.name,'ja')*sortDir;
+    if(sortCol==='assignee') return (a.assignee||'').localeCompare(b.assignee||'','ja')*sortDir;
+    return (taskDate(a)-taskDate(b))*sortDir;
+  });
+}
+
+function getRange(tasks) {
+  let mn=null,mx=null;
+  tasks.forEach(t=>{
+    const s=t.start?new Date(t.start):null,e=t.end?new Date(t.end):null;
+    const ds=s||(e||null),de=e||(s||null);
+    if(ds&&(!mn||ds<mn)) mn=ds;
+    if(de&&(!mx||de>mx)) mx=de;
+  });
+  if(!mn) mn=new Date(); if(!mx) mx=new Date();
+  return {mn:new Date(mn.getFullYear(),mn.getMonth(),1), mx:new Date(mx.getFullYear(),mx.getMonth()+1,0)};
+}
+
+function getMonths(mn,mx){
+  const ms=[];let cur=new Date(mn);
+  while(cur<=mx){ms.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}
+  return ms;
+}
+
+function pct(date,mn,totalDays){return((date-mn)/86400000)/totalDays*100;}
+
+function setSort(col){
+  if(sortCol===col) sortDir*=-1; else{sortCol=col;sortDir=1;}
+  render();
+}
+
+function render() {
+  const tasks = sortTasks(filterTasks());
+  const groupBy = document.getElementById('groupBy').value;
+  const wrap = document.getElementById('ganttWrap');
+  document.getElementById('status-bar').textContent = `${tasks.length} 件表示`;
+  if(!tasks.length){wrap.innerHTML='<div class="no-results">条件に一致するタスクがありません</div>';return;}
+
+  const {mn,mx}=getRange(tasks);
+  const totalDays=((mx-mn)/86400000)+1;
+  const months=getMonths(mn,mx);
+  const todayPct=pct(TODAY,mn,totalDays);
+  const showToday=todayPct>=0&&todayPct<=100;
+  const barColW=Math.max(300,months.length*80);
+  const sc=col=>`sortable ${sortCol===col?(sortDir===1?'sort-asc':'sort-desc'):''}`;
+
+  let html=`<table><thead><tr>
+<th class="${sc('name')}" onclick="setSort('name')" style="text-align:left;min-width:160px;">タスク名<span class="si"></span></th>
+<th class="${sc('bucket')}" onclick="setSort('bucket')" style="min-width:64px;">バケット<span class="si"></span></th>
+<th class="${sc('status')}" onclick="setSort('status')" style="min-width:52px;">状態<span class="si"></span></th>
+<th class="${sc('assignee')}" onclick="setSort('assignee')" style="min-width:90px;">担当者<span class="si"></span></th>
+<th class="${sc('end')}" colspan="${months.length}" onclick="setSort('end')" style="text-align:center;width:${barColW}px;border-left:1px solid #e0e0e0;">スケジュール（期限順）<span class="si"></span></th>
+</tr><tr><th></th><th></th><th></th><th></th>`;
+  months.forEach(m=>{html+=`<th style="text-align:center;border-left:1px solid #e0e0e0;font-size:10px;padding:3px 2px;">${m.getFullYear()}/${String(m.getMonth()+1).padStart(2,'0')}</th>`;});
+  html+='</tr></thead><tbody>';
+
+  let lastGroup=null;
+  tasks.forEach(t=>{
+    const gk=groupBy==='bucket'?t.bucket:groupBy==='status'?t.status:null;
+    if(gk!==null&&gk!==lastGroup){
+      const dot=groupBy==='bucket'?(BUCKET_COLORS[gk]||'#888'):(STATUS_BAR[gk]||'#888');
+      html+=`<tr class="group-label"><td colspan="${4+months.length}"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${dot};margin-right:6px;vertical-align:middle;"></span>${gk}</td></tr>`;
+      lastGroup=gk;
+    }
+    const s=t.start?new Date(t.start):null,e=t.end?new Date(t.end):null;
+    const ds=s||(e||null),de=e||(s||null);
+    let barLeft=null,barWidth=null;
+    if(ds&&de){
+      const sl=Math.max(0,pct(ds,mn,totalDays));
+      const el=Math.min(100,pct(de,mn,totalDays)+(1/totalDays*100));
+      barLeft=sl;barWidth=Math.max(0.5,el-sl);
+    }
+    const color=STATUS_BAR[t.status]||'#888';
+    const tcolor=STATUS_TEXT[t.status]||'#fff';
+    const members=t.assignee?t.assignee.split(';').map(m=>m.trim()).filter(Boolean):[];
+    const avatarsHtml=members.length>0
+      ?members.map(m=>`<span class="avatar" style="background:${memberColor(m)}22;color:${memberColor(m)};border:1px solid ${memberColor(m)}66;" title="${m}">${initials(m)}</span>`).join('')
+      :'<span style="font-size:10px;color:#aaa;">—</span>';
+
+    html+=`<tr>
+<td class="task-name-cell" title="${t.name}">${t.name}</td>
+<td class="bucket-cell"><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:${BUCKET_COLORS[t.bucket]||'#888'};margin-right:4px;vertical-align:middle;"></span>${t.bucket}</td>
+<td class="status-cell"><span class="status-badge" style="background:${STATUS_BG[t.status]};color:${STATUS_FG[t.status]};">${t.status}</span></td>
+<td class="member-cell"><div class="avatars">${avatarsHtml}</div></td>
+<td colspan="${months.length}" class="bar-cell" style="width:${barColW}px;"><div class="bar-inner">`;
+    if(showToday) html+=`<div class="today-line" style="left:${todayPct.toFixed(2)}%;"><span class="today-label">今日</span></div>`;
+    if(barLeft!==null) html+=`<div class="bar" style="left:${barLeft.toFixed(2)}%;width:${barWidth.toFixed(2)}%;background:${color};" title="${t.name}\n${t.start||''}〜${t.end||''}">${barWidth>5?`<span style="color:${tcolor}">${t.name}</span>`:''}</div>`;
+    html+=`</div></td></tr>`;
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+}
+
+['periodFilter','groupBy'].forEach(id=>document.getElementById(id).addEventListener('change',render));
+loadData();
+// 5分ごとに自動更新
+setInterval(loadData, 5 * 60 * 1000);
+</script>
+
+
+</body></html>
