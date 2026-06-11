@@ -95,6 +95,16 @@ tbody tr:hover { background: #fafafa; }
 // ★SharePointのtasks.jsonのURL
 const TASKS_JSON_URL = 'https://bakatang77.github.io/gantt/tasks.json';
 
+const BUCKET_MAP = {
+  "irbMT-hWPk2lcibBtLnFZ_oABvhE": "PLUS S",
+  "YUQzddTk5Eao-iOePhysEfoABvIi": "PLUS F",
+  "3DO9ADnqL0m4ZwfRw7YZ7foAA-_U": "KING",
+  "512104Vsvki81wFgyvV2dfoAEUX2": "TT",
+  "JgUokDkyt0mNRsaykR_HLvoAEOgZ": "PLUS V",
+  "Ion3urcS6U2W-uX23LDSXPoABKiB": "ATOM",
+  "5E3RGp5RW0uKyLXWru6UdPoAD1o-": "自社系",
+  "FIEIHWKyrUGwRRYiA6TzV_oAC2lM": "その他作業"
+};
 const BUCKET_COLORS = {"PLUS S":"#378ADD","PLUS F":"#1D9E75","KING":"#D85A30","TT":"#7F77DD","PLUS V":"#D4537E","ATOM":"#BA7517","自社系":"#639922","その他作業":"#5F5E5A"};
 const STATUS_ORDER  = {"処理中":0,"開始前":1,"完了済み":2};
 const STATUS_BAR    = {"完了済み":"#378ADD","処理中":"#1D9E75","開始前":"#EF9F27"};
@@ -135,7 +145,7 @@ function convertPlannerData(raw) {
     else if (task.percentComplete > 0) status = '処理中';
 
     // バケット名（IDのまま表示、後でマッピング可能）
-    const bucket = task.bucketId || '';
+    const bucket = BUCKET_MAP[task.bucketId] || task.bucketId || '';
 
     // 担当者
     const assignments = task.assignments || {};
