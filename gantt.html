@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0074)file:///C:/Users/%E6%96%8E%E8%97%A4%E5%AD%9D%E4%B9%8B/Downloads/gantt.html -->
+<!-- saved from url=(0076)file:///C:/Users/%E6%96%8E%E8%97%A4%E5%AD%9D%E4%B9%8B/Downloads/gantt_3.html -->
 <html lang="ja"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -88,14 +88,12 @@ tbody tr:hover { background: #fafafa; }
     <span class="legend-item"><span class="legend-dot" style="background:#e24b4a;width:4px;border-radius:0;"></span>今日</span>
   </div>
   <div id="status-bar"></div>
-  <div class="gantt-wrap" id="ganttWrap"><div id="loading">データの読み込みに失敗しました。URLを確認してください。</div></div>
+  <div class="gantt-wrap" id="ganttWrap"><div id="loading">データの読み込みに失敗しました。</div></div>
 </div>
 
 <script>
-// ======================================================
-// ★ここを自分のSharePointのtasks.jsonのURLに変更してください
-const TASKS_JSON_URL = 'https://bakatang77.github.io/gantt/tasks.json';
-// ======================================================
+// ★SharePointのtasks.jsonのURL
+const TASKS_JSON_URL = 'https://humancodedesign.sharepoint.com/Shared%20Documents/gantt/tasks.json';
 
 const BUCKET_COLORS = {"PLUS S":"#378ADD","PLUS F":"#1D9E75","KING":"#D85A30","TT":"#7F77DD","PLUS V":"#D4537E","ATOM":"#BA7517","自社系":"#639922","その他作業":"#5F5E5A"};
 const STATUS_ORDER  = {"処理中":0,"開始前":1,"完了済み":2};
@@ -104,13 +102,13 @@ const STATUS_TEXT   = {"完了済み":"#042C53","処理中":"#04342C","開始前
 const STATUS_BG     = {"完了済み":"#E6F1FB","処理中":"#E1F5EE","開始前":"#FAEEDA"};
 const STATUS_FG     = {"完了済み":"#185FA5","処理中":"#0F6E56","開始前":"#854F0B"};
 const MEMBER_COLORS = ["#7F77DD","#1D9E75","#D85A30","#D4537E","#BA7517","#378ADD","#639922","#5F5E5A"];
+const STATUS_MAP    = {0:"完了済み", 1:"処理中", 2:"開始前"};
 const TODAY = new Date();
 
 let RAW = [];
 let sortCol = 'end', sortDir = 1;
 const memberColorMap = {};
 let colorIdx = 0;
-
 const visibleBuckets = new Set();
 const visibleStatuses = new Set();
 const visibleMembers  = new Set();
@@ -125,14 +123,43 @@ function initials(name) {
   return p.length >= 2 ? p[0][0] + p[1][0] : name.slice(0,2);
 }
 
+// SharePointのPlannerデータをガントチャート用に変換
+function convertPlannerData(raw) {
+  // rawは配列または {value:[...]} の形式
+  let items = Array.isArray(raw) ? raw : (raw.value || []);
+  
+  return items.map(task => {
+    // ステータス変換（percentComplete: 100=完了, 0=未着手, その他=処理中）
+    let status = '開始前';
+    if (task.percentComplete === 100) status = '完了済み';
+    else if (task.percentComplete > 0) status = '処理中';
+
+    // バケット名（IDのまま表示、後でマッピング可能）
+    const bucket = task.bucketId || '';
+
+    // 担当者
+    const assignments = task.assignments || {};
+    const assignees = Object.keys(assignments).join(';');
+
+    return {
+      name: task.title || '',
+      bucket: bucket,
+      status: status,
+      assignee: assignees,
+      start: task.startDateTime ? task.startDateTime.split('T')[0] : null,
+      end: task.dueDateTime ? task.dueDateTime.split('T')[0] : null,
+    };
+  }).filter(t => t.name);
+}
+
 async function loadData() {
   try {
     const res = await fetch(TASKS_JSON_URL + '?_=' + Date.now());
-    RAW = await res.json();
+    const raw = await res.json();
+    RAW = convertPlannerData(raw);
     document.getElementById('last-updated').textContent = '最終更新：' + new Date().toLocaleString('ja-JP');
   } catch(e) {
-    RAW = [];
-    document.getElementById('loading').textContent = 'データの読み込みに失敗しました。URLを確認してください。';
+    document.getElementById('ganttWrap').innerHTML = '<div id="loading">データの読み込みに失敗しました。</div>';
     return;
   }
   initFilters();
@@ -140,6 +167,7 @@ async function loadData() {
 }
 
 function initFilters() {
+  visibleBuckets.clear(); visibleStatuses.clear(); visibleMembers.clear();
   const allBuckets = [...new Set(RAW.map(t=>t.bucket))].sort();
   const allStatuses = ["処理中","開始前","完了済み"];
   const allMembersSet = new Set();
@@ -152,6 +180,10 @@ function initFilters() {
   allMembers.forEach(m => visibleMembers.add(m));
   visibleMembers.add('__none__');
 
+  document.getElementById('bucketPills').innerHTML = '';
+  document.getElementById('statusPills').innerHTML = '';
+  document.getElementById('memberPills').innerHTML = '';
+
   buildPills('bucketPills', allBuckets, b => BUCKET_COLORS[b]||'#888', false, visibleBuckets);
   buildPills('statusPills', allStatuses, s => STATUS_BAR[s]||'#888', false, visibleStatuses);
   buildPills('memberPills', allMembers, m => memberColor(m), true, visibleMembers);
@@ -159,7 +191,6 @@ function initFilters() {
 
 function buildPills(containerId, items, colorFn, round, visibleSet) {
   const container = document.getElementById(containerId);
-  container.innerHTML = '';
   items.forEach(item => {
     const col = colorFn(item);
     const pill = document.createElement('span');
@@ -295,7 +326,6 @@ function render() {
 
 ['periodFilter','groupBy'].forEach(id=>document.getElementById(id).addEventListener('change',render));
 loadData();
-// 5分ごとに自動更新
 setInterval(loadData, 5 * 60 * 1000);
 </script>
 
